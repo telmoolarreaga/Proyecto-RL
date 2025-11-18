@@ -1,5 +1,5 @@
 #aaron_test
-
+import sys
 import os
 import gymnasium as gym
 from stable_baselines3 import PPO
@@ -12,25 +12,39 @@ from stable_baselines3.common.evaluation import evaluate_policy
 from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
 import gymtonic
+from gymnasium.envs.registration import register
+
+
+
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../gymtonic/envs')))
+
+# Importar tu entorno personalizado
+from aaron_socccer import SoccerSingleEnv
+
+# Registrar el entorno con Gym
+register(
+    id='SoccerSingle-v0',
+    entry_point='aaron_socccer:SoccerSingleEnv',  
+)
 
 seed = 42
-
+model_path = "policies/ppo_soccer_single.zip"
 train = True
 load_model = True
 
 if train:
-    env = gym.make('gymtonic/SoccerSingle-v0', render_mode="rgb_array")
+    env = gym.make('SoccerSingle-v0', render_mode="rgb_array")
     #check_env(env, warn=True) 
-    if load_model:
-        model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
+    if load_model and os.path.exists(model_path):
+        model = PPO.load(model_path, env=env, seed=seed, verbose=1)
     else:
-        model = PPO("MlpPolicy", env, seed=seed, verbose=1)
+        model = PPO("MlpPolicy", env=env, seed=seed, verbose=1)
     
     model.learn(total_timesteps=400_000, reset_num_timesteps=not load_model, progress_bar=True)
     model.save("policies/ppo_soccer_single")
     env.close()
 
-env = gym.make('gymtonic/SoccerSingle-v0', render_mode='human')
+env = gym.make('SoccerSingle-v0', render_mode='human')
 env = Monitor(env)
 model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
 
@@ -109,7 +123,7 @@ if train:
 # EVALUACIÓN
 # ----------------------
 print("Evaluando modelo PPO en modo humano...")
-env = gym.make('gymtonic/SoccerSingle-v0', render_mode='human')
+env = gym.make('SoccerSingle-v0', render_mode='human')
 env = Monitor(env)
 
 model = PPO.load(model_path, env=env, seed=seed, verbose=1)

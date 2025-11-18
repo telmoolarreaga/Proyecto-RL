@@ -12,7 +12,7 @@ from gymnasium.spaces import Box
 from gymnasium.core import ObsType, ActType, SupportsFloat, RenderFrame
 from typing import Any
 
-from gymtonic.envs.aaron_stadium import create_stadium, create_player, create_ball, create_fixed_obstacles
+from aaron_stadium import create_stadium, create_player, create_ball, create_fixed_obstacles
 
 logger = logging.getLogger(__name__)
 
