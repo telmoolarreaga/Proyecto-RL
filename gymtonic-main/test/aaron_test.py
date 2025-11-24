@@ -33,14 +33,14 @@ train = True
 load_model = True
 
 if train:
-    env = gym.make('SoccerSingle-v0', render_mode="rgb_array")
+    env = gym.make('SoccerSingle-v0', render_mode="none")
     #check_env(env, warn=True) 
     if load_model and os.path.exists(model_path):
         model = PPO.load(model_path, env=env, seed=seed, verbose=1)
     else:
         model = PPO("MlpPolicy", env=env, seed=seed, verbose=1)
     
-    model.learn(total_timesteps=400_000, reset_num_timesteps=not load_model, progress_bar=True)
+    model.learn(total_timesteps=1_000_000, reset_num_timesteps=not load_model, progress_bar=True)
     model.save("policies/ppo_soccer_single")
     env.close()
 
