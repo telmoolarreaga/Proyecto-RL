@@ -7,7 +7,7 @@ import gymtonic
 
 seed = 42
 
-train = False
+train = True
 load_model = True
 
 if train:
@@ -22,7 +22,7 @@ if train:
     model.save("policies/ppo_soccer_single")
     env.close()
 
-env = gym.make('gymtonic/SoccerSingle-v0', render_mode='human')
+env = gym.make('gymtonic/SoccerSingle-v0', render_mode='none')
 env = Monitor(env)
 model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
 
