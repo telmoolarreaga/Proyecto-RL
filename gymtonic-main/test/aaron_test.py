@@ -3,6 +3,7 @@ import os
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.callbacks import BaseCallback  # <-- añadido
 # from stable_baselines3.common.evaluation import evaluate_policy
 # from stable_baselines3.common.env_checker import check_env
 
@@ -11,7 +12,6 @@ sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
 # Registrar tu entorno si aún no está registrado
 import gymnasium
-
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.evaluation import evaluate_policy
@@ -19,20 +19,41 @@ from stable_baselines3.common.env_checker import check_env
 from stable_baselines3.common.monitor import Monitor
 import gymtonic
 
+# ---------- CALLBACK PARA CHECKPOINT ----------
+class SaveOnStepCallback(BaseCallback):
+    """
+    Guarda el modelo cada `save_freq` timesteps.
+    """
+    def __init__(self, save_freq: int, save_path: str, verbose=1):
+        super().__init__(verbose)
+        self.save_freq = save_freq
+        self.save_path = save_path
+        os.makedirs(save_path, exist_ok=True)
+
+    def _on_step(self) -> bool:
+        if self.num_timesteps % self.save_freq == 0:
+            save_file = os.path.join(self.save_path, f"model_{self.num_timesteps}.zip")
+            self.model.save(save_file)
+            if self.verbose > 0:
+                print(f"Checkpoint guardado en {save_file}")
+        return True
+
 seed = 42
 
 train = True
 load_model = False
+checkpoint_dir = "checkpoints"  # carpeta donde guardar los checkpoints
+checkpoint_callback = SaveOnStepCallback(save_freq=50_000, save_path=checkpoint_dir)  # <-- añadido
 
 if train:
-    env = gym.make('gymtonic/aaron_soccer', render_mode="rgb_array")
+    env = gym.make('gymtonic/aaron_soccer', render_mode=None)
     #check_env(env, warn=True) 
     if load_model:
         model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
     else:
         model = PPO("MlpPolicy", env, seed=seed, verbose=1)
     
-    model.learn(total_timesteps=400_000, reset_num_timesteps=not load_model, progress_bar=True)
+    model.learn(total_timesteps=400_000, reset_num_timesteps=not load_model, progress_bar=True, callback=checkpoint_callback)  # <-- añadido callback
     model.save("policies/ppo_aaron_soccer")
     env.close()
 
@@ -79,7 +100,7 @@ if train:
     else:
         model = PPO("MlpPolicy", env=env, seed=seed, verbose=1)
 
-    model.learn(total_timesteps=400_000, reset_num_timesteps=not (load_model and os.path.exists(model_path + ".zip")), progress_bar=True)
+    model.learn(total_timesteps=400_000, reset_num_timesteps=not (load_model and os.path.exists(model_path + ".zip")), progress_bar=True, callback=checkpoint_callback)  # <-- añadido callback
     model.save(model_path)
     env.close()
 
