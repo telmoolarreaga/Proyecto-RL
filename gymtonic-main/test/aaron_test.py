@@ -1,99 +1,109 @@
-# aaron_test.py
 import sys
 import os
-import random
-import numpy as np
 import gymnasium as gym
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.callbacks import CheckpointCallback, ProgressBarCallback
-from gymnasium.envs.registration import register
+# from stable_baselines3.common.evaluation import evaluate_policy
+# from stable_baselines3.common.env_checker import check_env
 
-# Asegúrate de que el paquete gymtonic (o la carpeta envs) esté en PYTHONPATH
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '../gymtonic')))
-
-# IMPORTANTE: el nombre de archivo es aaron_soccer.py -> módulo gymtonic.envs.aaron_soccer
-# No importar directamente la clase aquí; usaremos gym.make() después de registrar.
-# Registrar el entorno (solo si no está ya registrado)
-
-# Esto asegura que 'gymtonic' se pueda importar desde la carpeta raíz Proyecto-RL
+# Añadir gymtonic-main al PYTHONPATH para asegurar que aaron_soccer.py se importe
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-ENV_ID = "SoccerSingle-v0"
-try:
-    gym.spec(ENV_ID)
-except Exception:
-    register(
-        id=ENV_ID,
-        entry_point='gymtonic.envs.aaron_soccer:SoccerSingleEnv',
-        # allow_early_resets=True, # si quieres permitir resets mientras el episodio no ha terminado
-    )
+# Registrar tu entorno si aún no está registrado
+import gymnasium
 
-# Seed y paths
+import gymnasium as gym
+from stable_baselines3 import PPO
+from stable_baselines3.common.evaluation import evaluate_policy
+from stable_baselines3.common.env_checker import check_env
+from stable_baselines3.common.monitor import Monitor
+import gymtonic
+
 seed = 42
-random.seed(seed)
-np.random.seed(seed)
 
-policies_dir = os.path.join(os.path.dirname(__file__), "../policies")
-os.makedirs(policies_dir, exist_ok=True)
-model_path = os.path.join(policies_dir, "ppo_soccer_single.zip")
-os.makedirs(os.path.join(os.path.dirname(__file__), "../aaron_checkpoints"), exist_ok=True)
+train = True
+load_model = False
 
-# Training config
-train_flag = True
-load_model_if_exists = True
-total_timesteps = 400_000  # puedes ajustar
+if train:
+    env = gym.make('gymtonic/aaron_soccer', render_mode="rgb_array")
+    #check_env(env, warn=True) 
+    if load_model:
+        model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
+    else:
+        model = PPO("MlpPolicy", env, seed=seed, verbose=1)
+    
+    model.learn(total_timesteps=400_000, reset_num_timesteps=not load_model, progress_bar=True)
+    model.save("policies/ppo_aaron_soccer")
+    env.close()
+
+env = gym.make('gymtonic/SoccerSingle-v0', render_mode='none')
+env = Monitor(env)
+model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
+
+avd_reward = 0
+
+for _ in range(100):
+    obs, _ = env.reset()
+    terminated = truncated = False
+    total_reward = 0
+
+    while not terminated and not truncated:
+        action, _ = model.predict(obs)
+        obs, reward, terminated, truncated, _ = env.step(action)
+        total_reward += reward
+
+    print(f"Episode reward: {total_reward}")
+    avd_reward += total_reward
+print(f"Average reward: {avd_reward/100}")
+
+
+# Pybullet rendering not working with evaluate_policy
+#mean_reward, _ = evaluate_policy(model, env, n_eval_episodes=100, deterministic=True, render=True)
+#print(f"Mean_reward:{mean_reward:.2f}")
+
+env.close()
+seed = 42
+train = True
+load_model = True
+model_path = "policies/ppo_aaron_soccer"
 
 # ---------- TRAIN ----------
-if train_flag:
-    print("Creando entorno para entrenamiento (sin render)...")
-    env = gym.make(ENV_ID, render_mode=None)
+if train:
+    env = gym.make("gymtonic/SoccerSingleAaron-v0", render_mode=None)
     env = Monitor(env)
 
-    if load_model_if_exists and os.path.exists(model_path):
-        print("Cargando modelo existente:", model_path)
+    # check_env(env, warn=True)  # opcional: revisar entorno
+
+    if load_model and os.path.exists(model_path + ".zip"):
         model = PPO.load(model_path, env=env, seed=seed, verbose=1)
     else:
-        print("Creando nuevo modelo PPO")
         model = PPO("MlpPolicy", env=env, seed=seed, verbose=1)
 
-    checkpoint_callback = CheckpointCallback(save_freq=50_000, save_path=os.path.join(os.path.dirname(__file__), "../aaron_checkpoints/"), name_prefix='ppo_soccer')
-    progress_callback = ProgressBarCallback()
-
-    print("Entrenando...")
-    model.learn(total_timesteps=total_timesteps, reset_num_timesteps=not (os.path.exists(model_path) and load_model_if_exists),
-                callback=[checkpoint_callback, progress_callback])
-    print("Guardando modelo en:", model_path)
+    model.learn(total_timesteps=400_000, reset_num_timesteps=not (load_model and os.path.exists(model_path + ".zip")), progress_bar=True)
     model.save(model_path)
     env.close()
 
 # ---------- EVALUACIÓN ----------
-print("Evaluando modelo en modo humano (10 episodios)...")
-env = gym.make(ENV_ID, render_mode='human')
+env = gym.make("gymtonic/SoccerSingleAaron-v0", render_mode=None)
 env = Monitor(env)
-
 model = PPO.load(model_path, env=env, seed=seed, verbose=1)
 
-n_eval = 10
-sum_reward = 0.0
-for ep in range(n_eval):
+avg_reward = 0.0
+n_eval = 100
+
+for _ in range(n_eval):
     obs, _ = env.reset()
     terminated = truncated = False
-    episode_reward = 0.0
-
-    # Opcional: inicializar variables de shaping dentro del env si las usa
-    if hasattr(env.unwrapped, "init_evaluation_metrics"):
-        env.unwrapped.init_evaluation_metrics()
+    total_reward = 0.0
 
     while not (terminated or truncated):
         action, _ = model.predict(obs, deterministic=True)
-        obs, reward, terminated, truncated, info = env.step(action)
-        episode_reward += reward
+        obs, reward, terminated, truncated, _ = env.step(action)
+        total_reward += reward
 
-    print(f"Episode {ep+1} reward: {episode_reward:.3f}")
-    sum_reward += episode_reward
+    print(f"Episode reward: {total_reward:.3f}")
+    avg_reward += total_reward
 
-avg_reward = sum_reward / n_eval
-print(f"Average reward over {n_eval} episodes: {avg_reward:.3f}")
+print(f"Average reward over {n_eval} episodes: {avg_reward/n_eval:.3f}")
 
 env.close()
