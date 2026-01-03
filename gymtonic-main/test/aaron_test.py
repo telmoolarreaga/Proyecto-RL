@@ -41,15 +41,15 @@ class SaveOnStepCallback(BaseCallback):
 seed = 42
 
 train = True
-load_model = False
+load_model = True
 checkpoint_dir = "checkpoints"  # carpeta donde guardar los checkpoints
 checkpoint_callback = SaveOnStepCallback(save_freq=50_000, save_path=checkpoint_dir)  # <-- añadido
 
 if train:
-    env = gym.make('gymtonic/aaron_soccer', render_mode=None)
+    env = gym.make('gymtonic/aaron_soccer', render_mode="rgb_array")
     #check_env(env, warn=True) 
     if load_model:
-        model = PPO.load("policies/ppo_soccer_single", env, seed=seed, verbose=1)
+        model = PPO.load("checkpoints/model_450000", env, seed=seed, verbose=1)
     else:
         model = PPO("MlpPolicy", env, seed=seed, verbose=1)
     

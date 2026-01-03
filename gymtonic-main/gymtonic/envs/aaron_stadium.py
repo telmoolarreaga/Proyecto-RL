@@ -7,7 +7,7 @@ import pybullet as p
 def create_fixed_obstacles(field_length, base_height=0.4, cube_size=0.5):
     formation_positions = [
         (-2, -1), (-2, 1),
-        #(2, -1), (2, 1)
+        (2, -1), (2, 1)
     ]
     obstacle_ids = []
     for (x, y) in formation_positions:
