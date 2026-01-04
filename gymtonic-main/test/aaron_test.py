@@ -1,89 +1,133 @@
-import sys
 import os
+import sys
 import gymnasium as gym
+import numpy as np
 from stable_baselines3 import PPO
 from stable_baselines3.common.monitor import Monitor
-from stable_baselines3.common.callbacks import BaseCallback
-import numpy as np
+from stable_baselines3.common.callbacks import CheckpointCallback
+from stable_baselines3.common.utils import get_latest_run_id
+from datetime import datetime
 
-# Añadir gymtonic-main al PYTHONPATH
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+# ================= PATHS ROBUSTOS =================
+BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-# Registrar entorno si aún no está registrado
+POLICIES_DIR = os.path.join(BASE_DIR, "policies")
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpoints")
+TENSORBOARD_DIR = os.path.join(BASE_DIR, "tensorboard")
+
+os.makedirs(POLICIES_DIR, exist_ok=True)
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+os.makedirs(TENSORBOARD_DIR, exist_ok=True)
+
+MODEL_NAME = "ppo_aaron_soccer"
+MODEL_PATH = os.path.join(POLICIES_DIR, MODEL_NAME)
+
+# ================= CONFIG =================
+seed = 42
+train = True
+load_model = True
+total_timesteps = 100_000
+
+# ================= GYM ENV =================
+sys.path.append(BASE_DIR)
 import gymtonic
 
-# ---------- CALLBACK PARA CHECKPOINT ----------
-class SaveOnStepCallback(BaseCallback):
-    """Guarda el modelo cada `save_freq` timesteps."""
-    def __init__(self, save_freq: int, save_path: str, verbose=1):
-        super().__init__(verbose)
-        self.save_freq = save_freq
-        self.save_path = save_path
-        os.makedirs(save_path, exist_ok=True)
+def make_env(render_mode=None):
+    env = gym.make("gymtonic/aaron_soccer", render_mode=render_mode)
+    return Monitor(env)
 
-    def _on_step(self) -> bool:
-        if self.num_timesteps % self.save_freq == 0:
-            save_file = os.path.join(self.save_path, f"model_{self.num_timesteps}.zip")
-            self.model.save(save_file)
-            if self.verbose > 0:
-                print(f"Checkpoint guardado en {save_file}")
-        return True
+# ================= CHECKPOINT CALLBACK =================
+checkpoint_callback = CheckpointCallback(
+    save_freq=20_000,
+    save_path=CHECKPOINT_DIR,
+    name_prefix=MODEL_NAME
+)
 
-# ---------------- CONFIG ----------------
-seed = 42
-train = False
-load_model = True
-checkpoint_dir = "checkpoints"
-checkpoint_callback = SaveOnStepCallback(save_freq=50_000, save_path=checkpoint_dir)
-model_path = "policies/ppo_aaron_soccer"
+# ================= CARGAR ÚLTIMO CHECKPOINT =================
+def load_latest_checkpoint(env):
+    checkpoints = [
+        os.path.join(CHECKPOINT_DIR, f)
+        for f in os.listdir(CHECKPOINT_DIR)
+        if f.endswith(".zip")
+    ]
+    if not checkpoints:
+        print("⚠️ No hay checkpoints, entrenando desde cero")
+        return None
 
-# ---------- ENTORNO DE ENTRENAMIENTO ----------
+    latest_checkpoint = max(checkpoints, key=os.path.getmtime)
+    print(f"🔁 Cargando checkpoint: {latest_checkpoint}")
+
+    # Cargar checkpoint y pasar tensorboard_log
+    model = PPO.load(
+        latest_checkpoint,
+        env=env,
+        seed=seed,
+        tensorboard_log=os.path.join(TENSORBOARD_DIR, "from_checkpoint")
+    )
+    return model
+
+
+
+# ================= ENTRENAMIENTO =================
 if train:
-    env = gym.make('gymtonic/aaron_soccer', render_mode='rgb_array')
-    env = Monitor(env)
+    env = make_env()
 
-    if load_model and os.path.exists(model_path + ".zip"):
-        model = PPO.load(model_path, env=env, seed=seed, verbose=1)
+    model = None
+    if load_model:
+        model = load_latest_checkpoint(env)
+
+    if model is None:
+        # entrenamos desde cero
+        experiment_name = datetime.now().strftime("PPO_%Y%m%d_%H%M%S")
+        model = PPO(
+            "MlpPolicy",
+            env,
+            seed=seed,
+            verbose=1,
+            tensorboard_log=os.path.join(TENSORBOARD_DIR, experiment_name)
+        )
+        reset_timesteps = True
     else:
-        model = PPO("MlpPolicy", env=env, seed=seed, verbose=1)
+        reset_timesteps = False
 
     model.learn(
-        total_timesteps=1_000_000,
-        reset_num_timesteps=not (load_model and os.path.exists(model_path + ".zip")),
+        total_timesteps=total_timesteps,
+        reset_num_timesteps=reset_timesteps,
+        callback=checkpoint_callback,
         progress_bar=True,
-        callback=checkpoint_callback
+        log_interval=1 
     )
 
-    model.save(model_path)
+    model.save(MODEL_PATH)
     env.close()
 
-# ---------- EVALUACIÓN ----------
-env = gym.make('gymtonic/aaron_soccer', render_mode='human')  # ⚡ render para ver obstáculos y portero
-env = Monitor(env)
+# ================= EVALUACIÓN =================
+env = make_env(render_mode="human")
 
-model = PPO.load(model_path, env=env, seed=seed, verbose=1)
+if load_model:
+    if os.path.exists(MODEL_PATH + ".zip"):
+        model = PPO.load(MODEL_PATH, env=env)
+    else:
+        model = load_latest_checkpoint(env)
+else:
+    raise RuntimeError("No se puede evaluar sin cargar modelo")
 
-# ⚡ Reset explícito para que se creen obstáculos y portero
-obs, info = env.reset()
-
+obs, _ = env.reset()
 avg_reward = 0.0
-n_eval = 20  # puedes subir a 100 para métricas más precisas
+n_eval = 20
 
 for ep in range(n_eval):
     terminated = truncated = False
-    total_reward = 0.0
+    ep_reward = 0.0
 
     while not (terminated or truncated):
         action, _ = model.predict(obs, deterministic=True)
-        obs, reward, terminated, truncated, info = env.step(action)
-        total_reward += reward
+        obs, reward, terminated, truncated, _ = env.step(action)
+        ep_reward += reward
 
-    print(f"Episode {ep+1} reward: {total_reward:.3f}")
-    avg_reward += total_reward
+    print(f"Episode {ep+1}: reward = {ep_reward:.3f}")
+    avg_reward += ep_reward
+    obs, _ = env.reset()
 
-    # Reset entre episodios
-    obs, info = env.reset()
-
-print(f"Average reward over {n_eval} episodes: {avg_reward/n_eval:.3f}")
-
+print(f"\n⭐ Average reward ({n_eval} episodes): {avg_reward / n_eval:.3f}")
 env.close()
