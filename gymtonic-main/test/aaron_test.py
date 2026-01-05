@@ -24,9 +24,9 @@ MODEL_PATH = os.path.join(POLICIES_DIR, MODEL_NAME)
 
 # ================= CONFIG =================
 seed = 42
-train = False
+train = True
 load_model = True
-total_timesteps = 100_000
+total_timesteps = 1_000_000
 
 # ================= GYM ENV =================
 sys.path.append(BASE_DIR)
@@ -38,7 +38,7 @@ def make_env(render_mode=None):
 
 # ================= CHECKPOINT CALLBACK =================
 checkpoint_callback = CheckpointCallback(
-    save_freq=20_000,
+    save_freq=50_000,
     save_path=CHECKPOINT_DIR,
     name_prefix=MODEL_NAME
 )

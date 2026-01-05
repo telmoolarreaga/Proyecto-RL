@@ -298,26 +298,33 @@ class SoccerSingleEnv(Env):
 
         truncated = False
         reward = 0
-        info = {}   
+        info = {}  
         terminated = False
 
         goal = self.is_goal()
-        
+    
+        # 1️⃣ Reward por gol
         if goal == self.goal_direction:
             reward += 100
             terminated = True
             logger.info(f"Goal scored!")
-        elif self.is_ball_out_of_bounds(): # We must check this after the goal check, becaouse goal is out of bounds
+        elif self.is_ball_out_of_bounds():  # después de gol
             terminated = True
             logger.info("Ball is out of bounds")
         else:
-            # Possesion reward
+            # Posesión de balón
             if self.player_touched_ball:
-                reward += 0.1 # Possesion reward :-)
-                logger.info(f"Player kicked the ball")
+                reward += 1  # pequeño bonus por tocar la pelota
+                logger.info(f"Player touched the ball")
 
-        # Time penalty 
-        reward -= 0.1
+            # 2️⃣ Penalización por tiempo
+            reward -= 0.1
+
+            # 3️⃣ Penalización por tocar obstáculos
+            for obs_id in self.pybullet_obstacle_ids:
+                if p.getContactPoints(self.pybullet_player_id, obs_id):
+                    reward -= 0.5
+                    logger.info(f"Player touched an obstacle!")
 
         obs = self.get_observation()
         return obs, reward, terminated, truncated, info
