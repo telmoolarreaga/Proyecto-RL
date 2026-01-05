@@ -24,7 +24,7 @@ MODEL_PATH = os.path.join(POLICIES_DIR, MODEL_NAME)
 
 # ================= CONFIG =================
 seed = 42
-train = True
+train = False
 load_model = True
 total_timesteps = 100_000
 

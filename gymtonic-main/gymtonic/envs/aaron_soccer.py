@@ -243,7 +243,7 @@ class SoccerSingleEnv(Env):
         pos, ori = p.getBasePositionAndOrientation(self.pybullet_goalie_id)
     
         # velocidad lenta
-        y = pos[1] + self.goalie_direction * 0.0001  # ajusta velocidad si es necesario
+        y = pos[1] + self.goalie_direction * 0.005  # ajusta velocidad si es necesario
 
         # límites exactos de la portería
         goal_width = self.perimeter_side * 0.22  # por ejemplo, 25% del ancho del estadio
