@@ -26,7 +26,7 @@ class SoccerSingleEnv(Env):
         self.max_speed = float(max_speed)
         self.player_touched_ball = False
 
-        # Decide dirección del gol si pide 'random'
+        # Decides goal target if random is selected
         '''
         if goal_target == 'random':
             self.goal_direction = 'right' if np.random.rand() < 0.5 else 'left'
@@ -36,10 +36,10 @@ class SoccerSingleEnv(Env):
         self.goal_target = goal_target
         
 
-        # Conectar con pybullet y crear objetos
+        # Connect to PyBullet and create objects
         self.connect_to_pybullet(record_video_file)
 
-        # Cargar plano y stadium
+        # Load plane and stadium
         p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self.pybullet_plane_id = p.loadURDF("plane.urdf", [0, 0, 0])
         pybullet_goal_right_id, pybullet_goal_left_id, pybullet_wall_ids, = create_stadium(self.perimeter_side)
@@ -49,27 +49,28 @@ class SoccerSingleEnv(Env):
         self.pybullet_goal_left_id = pybullet_goal_left_id
         self.pybullet_wall_ids = pybullet_wall_ids
 
-        # Crear jugador y pelota (posiciones luego reseteadas)
+        # Create player and ball
         red_color = [0.8, 0.1, 0.1, 1]
         self.pybullet_player_id = create_player([0, 0, 0.5], red_color)
         self.pybullet_ball_id = create_ball([0, 0, 1.0])
 
-        # Crear el portero movil
+        # Create moving goalie
         self.pybullet_goalie_id = None
-        self.goalie_direction = 1  # 1 = hacia la derecha, -1 = hacia la izquierda
+        self.goalie_direction = 1  # 1 = right, -1 = left
 
 
-        # Observación: [orientation, speed, player_x, player_y, ball_rel_x, ball_rel_y, goal_rel_x, goal_rel_y]
+        # Observation: [orientation, speed, player_x, player_y, ball_rel_x, ball_rel_y, goal_rel_x, goal_rel_y]
         low = np.array([-2*math.pi, 0.0, -self.perimeter_side/2, -self.perimeter_side/2, -self.perimeter_side, -self.perimeter_side, -self.perimeter_side, -self.perimeter_side], dtype=np.float32)
         high = np.array([2*math.pi, 10.0, self.perimeter_side/2, self.perimeter_side/2, self.perimeter_side, self.perimeter_side, self.perimeter_side, self.perimeter_side], dtype=np.float32)
         self.observation_space = Box(low=low, high=high, dtype=np.float32)
 
-        # Acción: [rotation_offset_norm (-1..1), forward_force_norm (-1..1)]
+        # Action: [rotation_offset_norm (-1..1), forward_force_norm (-1..1)]
         self.action_space = Box(low=np.array([-1.0, -1.0], dtype=np.float32), high=np.array([1.0, 1.0], dtype=np.float32), dtype=np.float32)
 
-        # Variables auxiliares
+        # Auxiliary variables
         self.previous_distance_to_goal = None
 
+    # Pybullet connection
     def connect_to_pybullet(self, record_video_file=None):
         if record_video_file is not None:
             self.physicsClient = p.connect(p.GUI if self.render_mode else p.DIRECT, options=f"--mp4='{record_video_file}'")
@@ -88,26 +89,27 @@ class SoccerSingleEnv(Env):
             # Reorient the debug camera
             p.resetDebugVisualizerCamera(cameraDistance=6, cameraYaw=0, cameraPitch=-60, cameraTargetPosition=[0,-1.5,0])
 
-
+    # Create moving goalie
     def create_moving_goalie(self):
-        # Posición inicial en el centro de la portería
+        # Initial position in the center of the goal
         if self.goal_target == 'right':
          x = self.perimeter_side / 2 - 0.1
         else:
          x = -self.perimeter_side / 2 + 0.1
-        y = 0  # centro
-        z = 0.5  # altura
-        color = [0, 0, 1, 1]  # azul
+        y = 0  # center
+        z = 0.5  # height
+        color = [0, 0, 1, 1]  # blue
         size = 0.3
         collision = p.createCollisionShape(p.GEOM_BOX, halfExtents=[size/2, size/2, size/2])
         visual = p.createVisualShape(p.GEOM_BOX, halfExtents=[size/2, size/2, size/2], rgbaColor=color)
         goalie_id = p.createMultiBody(baseMass=0, baseCollisionShapeIndex=collision,
                                   baseVisualShapeIndex=visual, basePosition=[x, y, z])
         return goalie_id
-
+    
+    # Simulation Control
     def step_simulation(self):
         p.stepSimulation()
-        self.move_goalie()  # mover portero cada step
+        self.move_goalie()  # move goalie each step
         if self.render_mode == 'human':
             time.sleep(self.SIMULATION_STEP_DELAY)
 
@@ -127,6 +129,7 @@ class SoccerSingleEnv(Env):
                 if np.linalg.norm(player_velocity) < 2*self.max_speed:
                     return
 
+    # Gym Api
     def reset(self, *, seed: int | None = None, options: dict[str, Any] | None = None) -> tuple[ObsType, dict[str, Any]]:
         super().reset(seed=seed)
 
@@ -146,7 +149,7 @@ class SoccerSingleEnv(Env):
         else:
             p.changeVisualShape(self.pybullet_goal_left_id, -1, rgbaColor=goal_color)
             p.changeVisualShape(self.pybullet_goal_right_id, -1, rgbaColor=[1, 1, 1, 1])
-        # Crear portero si no existe
+        # Create goalie if not existing
         if self.pybullet_goalie_id is None:
             self.pybullet_goalie_id = self.create_moving_goalie()
 
@@ -242,28 +245,28 @@ class SoccerSingleEnv(Env):
 
         pos, ori = p.getBasePositionAndOrientation(self.pybullet_goalie_id)
     
-        # velocidad lenta
-        y = pos[1] + self.goalie_direction * 0.005  # ajusta velocidad si es necesario
+        # low pace
+        y = pos[1] + self.goalie_direction * 0.005  
 
-        # límites exactos de la portería
-        goal_width = self.perimeter_side * 0.22  # por ejemplo, 25% del ancho del estadio
+        # exact limits of the goal
+        goal_width = self.perimeter_side * 0.22  
         half_goal_width = goal_width / 2
 
         if y > half_goal_width or y < -half_goal_width:
             self.goalie_direction *= -1
             y = max(min(y, half_goal_width), -half_goal_width)
 
-        # posición X fija en la línea de gol
+        # fixed X position on the goal line
         if self.goal_target == 'right':
             x = self.perimeter_side / 2 - 0.1
         else:
             x = -self.perimeter_side / 2 + 0.1
-        # mantener Z
+        # maintain Z
         z = pos[2]
 
         p.resetBasePositionAndOrientation(self.pybullet_goalie_id, [x, y, z], ori)
 
-
+    # Observations
     def get_observation(self):
         obs = np.array([], dtype=np.float32)
 
@@ -303,24 +306,24 @@ class SoccerSingleEnv(Env):
 
         goal = self.is_goal()
     
-        # 1️⃣ Reward por gol
+        # Reward por gol
         if goal == self.goal_direction:
             reward += 100
             terminated = True
             logger.info(f"Goal scored!")
-        elif self.is_ball_out_of_bounds():  # después de gol
+        elif self.is_ball_out_of_bounds():  # after goal
             terminated = True
             logger.info("Ball is out of bounds")
         else:
-            # Posesión de balón
+            # ball posession 
             if self.player_touched_ball:
-                reward += 1  # pequeño bonus por tocar la pelota
+                reward += 1  # small reward for touching the ball
                 logger.info(f"Player touched the ball")
 
-            # 2️⃣ Penalización por tiempo
+            #  Penalty for time
             reward -= 0.1
 
-            # 3️⃣ Penalización por tocar obstáculos
+            #  Penalty for touching obstacles
             for obs_id in self.pybullet_obstacle_ids:
                 if p.getContactPoints(self.pybullet_player_id, obs_id):
                     reward -= 0.5
@@ -431,6 +434,7 @@ class SoccerSingleEnv(Env):
         
         return angle_z
 
+    # Utilities
     def render(self) -> RenderFrame | list[RenderFrame] | None:
         if self.render_mode == 'human':
             p.stepSimulation()

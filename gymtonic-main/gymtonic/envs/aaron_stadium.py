@@ -4,6 +4,8 @@ import os
 import numpy as np
 import pybullet as p
 
+# Fixed Obstacles
+
 def create_fixed_obstacles(field_length, base_height=0.4, cube_size=0.5):
     formation_positions = [
         (-2, -1), (-2, 1),
@@ -20,6 +22,7 @@ def create_fixed_obstacles(field_length, base_height=0.4, cube_size=0.5):
         obstacle_ids.append(obstacle_id)
     return obstacle_ids
 
+# Stadium Creation
 def create_stadium(side_length):
     """
     Creates a soccer stadium in PyBullet.
@@ -49,6 +52,8 @@ def create_player(position = [0,0,0], color = [0.8, 0.1, 0.1, 1]):
 
     return player_id
 
+
+# Player Creation 
 def _create_player(position = [0,0,0], color = [0.8, 0.1, 0.1, 1]):
     position = [0, 0, 0.5]
     cube_size = 0.4
@@ -91,7 +96,7 @@ def _create_player(position = [0,0,0], color = [0.8, 0.1, 0.1, 1]):
     return player_id
 
 
-
+# Ball Creation
 def create_ball(position):
         pybullet_ball_id = p.loadURDF("soccerball.urdf", position, useFixedBase=False, globalScaling=0.3)
 
@@ -103,7 +108,7 @@ def create_ball(position):
                          mass = 0.1, restitution=0.8) # Restitution is the bounciness of the ball
         return pybullet_ball_id
 
-
+# Turf Creation
 def _create_turf(side_length, height = 0.4):
     half_size = side_length / 2.0 + 0.8 # Add some extra space around the field
     half_height = height / 2.0
@@ -135,6 +140,7 @@ def _create_turf(side_length, height = 0.4):
     return turf_id
 
 
+# Perimeter Creation
 def _create_perimeter(length, thickness, height, base_height, color):
     """
     Creates a rectangular structure with walls, with gaps in the center of the shorter sides.
@@ -230,6 +236,7 @@ def _create_perimeter(length, thickness, height, base_height, color):
     return pybullet_wall_ids
 
 
+# Create Curved Corner
 def _create_curved_corner(position, height, radius=1, orientation=0, color = [0,0,0,1], num_segments=30):
     """
     Create a 90-degree circular corner with a given position, radius, number of segments, and orientation.
