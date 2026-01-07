@@ -8,7 +8,6 @@ from stable_baselines3.common.callbacks import CheckpointCallback
 from stable_baselines3.common.utils import get_latest_run_id
 from datetime import datetime
 
-# Path Configuration
 
 # Base directory of the project 
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
@@ -23,12 +22,13 @@ os.makedirs(POLICIES_DIR, exist_ok=True)
 os.makedirs(CHECKPOINT_DIR, exist_ok=True)
 os.makedirs(TENSORBOARD_DIR, exist_ok=True)
 
+
 # Base model name, used for files and checkpoints
 MODEL_NAME = "ppo_aaron_soccer"
 MODEL_PATH = os.path.join(POLICIES_DIR, MODEL_NAME)
 
 # Training Configuration
-seed = 42
+seed = 43
 train = False
 load_model = True
 total_timesteps = 1_000_000
@@ -50,28 +50,19 @@ checkpoint_callback = CheckpointCallback(
 
 #  Load Latest Checkpoint Function
 def load_latest_checkpoint(env):
-    checkpoints = [
-        os.path.join(CHECKPOINT_DIR, f)
-        for f in os.listdir(CHECKPOINT_DIR)
-        if f.endswith(".zip")
-    ]
-    if not checkpoints:
-        print(" No hay checkpoints, entrenando desde cero")
-        return None
+    checkpoint_path = os.path.join(
+        "checkpoints",
+        "ppo_aaron_soccer_1750000_steps.zip"
+    )
 
-    latest_checkpoint = max(checkpoints, key=os.path.getmtime)
-    print(f" Cargando checkpoint: {latest_checkpoint}")
+    print(f"🔁 Cargando checkpoint: {checkpoint_path}")
 
-    # Load checkpoint and pass tensorboard_log
     model = PPO.load(
-        latest_checkpoint,
+        checkpoint_path,
         env=env,
-        seed=seed,
-        tensorboard_log=os.path.join(TENSORBOARD_DIR, "from_checkpoint")
+        device="auto"
     )
     return model
-
-
 
 # Training
 if train:
@@ -117,10 +108,12 @@ if load_model:
         print(f"Cargando modelo para evaluación: {MODEL_PATH}.zip")
     else:
         model = load_latest_checkpoint(env)
+        print(f"Cargando ultimo checpoint")
 else:
     raise RuntimeError("Cannot evaluate without a trained model.")
 
-obs, _ = env.reset()
+obs, _ = env.reset(seed=np.random.randint(0, 1_000_000))
+
 avg_reward = 0.0
 n_eval = 20
 
