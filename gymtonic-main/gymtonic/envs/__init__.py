@@ -54,10 +54,17 @@ register(
     max_episode_steps=500
 )
 register(
-    id='gymtonic/aaron_soccer',
-    entry_point='gymtonic.envs.aaron_soccer:SoccerSingleEnv',
+    id='gymtonic/soccer',
+    entry_point='gymtonic.envs.soccer:SoccerSingleEnv',
     max_episode_steps=500
 )
+
+register(
+    id='gymtonic/soccer_curriculum',
+    entry_point='gymtonic.envs.soccer_curriculum:SoccerSingleEnv',
+    max_episode_steps=500
+)
+
 register(
     id='gymtonic/SoccerSingle-v0',
     entry_point='gymtonic.envs.soccer_single_v0:SoccerSingleEnv',
