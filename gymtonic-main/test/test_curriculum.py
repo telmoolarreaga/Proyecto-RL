@@ -14,9 +14,9 @@ from datetime import datetime
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
 #Directories for saving models, checkpoints, and TensorBoard logs
-POLICIES_DIR = os.path.join(BASE_DIR, "policies")
-CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpoints")
-TENSORBOARD_DIR = os.path.join(BASE_DIR, "tensorboard")
+POLICIES_DIR = os.path.join(BASE_DIR, "policies_curriculum")
+CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpoints_curriculum")
+TENSORBOARD_DIR = os.path.join(BASE_DIR, "tensorboard_curriculum")
 
 # Create directories if they do not exist
 os.makedirs(POLICIES_DIR, exist_ok=True)
@@ -114,6 +114,7 @@ env = make_env(render_mode="human")
 if load_model:
     if os.path.exists(MODEL_PATH + ".zip"):
         model = PPO.load(MODEL_PATH, env=env)
+        print(f"Cargando modelo para evaluación: {MODEL_PATH}.zip")
     else:
         model = load_latest_checkpoint(env)
 else:

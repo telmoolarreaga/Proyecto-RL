@@ -11,7 +11,7 @@ from datetime import datetime
 # Setup and directories
 BASE_DIR = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 
-POLICIES_DIR = os.path.join(BASE_DIR, "policies_iker")
+POLICIES_DIR = os.path.join(BASE_DIR, "policies_reward")
 CHECKPOINT_DIR = os.path.join(BASE_DIR, "checkpoints_iker")
 TENSORBOARD_DIR = os.path.join(BASE_DIR, "tensorboard_iker")
 
